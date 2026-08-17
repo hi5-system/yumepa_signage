@@ -158,7 +158,7 @@ iframe{
 	line-height:1.4;
 	text-align:center;
 	padding-top:40px;
-	margin-bottom: 30px;
+	margin-bottom: 15px;
 	position:relative;
 }
 
@@ -652,4 +652,298 @@ hr {
     font-family: serif;
     font-weight: bold;
     margin: 0 -50px 0px;
+}
+
+/* =========================================================
+   湯温の温度計（kinosaki-congestion thermometer.css より移植）
+   2026-08-06 追加。温度マークアップは sotoyu.html 由来で既にあり、
+   ガラス管・液面・球は js/thermometer.js が差し込む。
+   ここではサイネージの大きな施設カードに合わせて拡大表示する。
+   ※寸法は下の CSS 変数（--th-*）で一括調整可能。
+   ========================================================= */
+.hot-spring-temperature {
+  --min: 30;                 /* 目盛り下限（液面計算用） */
+  --max: 45;                 /* 目盛り上限（液面計算用） */
+  --temp: 38;                /* thermometer.js が数値で上書き */
+
+  --liquid: #f6c445;         /* 基準未満（--warm）：黄 */
+  --glass:  #e3e7ee;
+
+  /* サイネージ用スケール（2026-08-06 もう少しだけ大きめに調整） */
+  --th-tube-w: 24px;
+  --th-tube-h: 106px;
+  --th-bulb:   40px;
+  --th-value:  2.05rem;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+/* 基準温度以上（サーバーが --hot を付与）：赤 */
+.hot-spring-temperature--hot { --liquid: #e94b34 }
+
+/* ---- 城崎レイアウト：グラフ（左）と温度計（右）を横並び ----
+   ★重要：.facility を grid/flex 化すると、チャート生成後に thermometer.js が
+   図を差し込む→レイアウトが動く→Chart.js がリサイズを検知して即時再描画し、
+   ドーナツのローテーションアニメがキャンセルされる（本番はグリッド無しで安定）。
+   そこで .chart は本番と同じ通常フローのまま触らず、グラフを左寄せに縮めて
+   右に空けたスペースへ温度計を「絶対配置」する。→ チャートに一切影響しない。 */
+.facility {
+  position: relative;
+}
+/* グラフを左寄せ・少し小さめにして右側に温度計スペースを空ける。
+   幅・padding は静的なのでチャート生成時にサイズが確定＝リサイズは起きない。
+   padding は左右対称のまま（％数字の left:50% 中央がズレないように）。 */
+.facility > .chart {
+  width: 66%;
+  margin: 0 auto 0 2%;   /* 左寄せ */
+  padding: 0 4%;         /* 対称のまま。左右パディングを詰めてドーナツを拡大 */
+}
+/* 温度計：ドーナツの直右へ絶対配置（フローに影響しない＝チャート不動）。
+   .chart は width:66% 左寄せ・padding:0 8% なので、ドーナツ右端は
+   カード幅の約63%。その直後に来るよう left で寄せる。
+   width:auto で数値の幅にフィットさせ、左の余白を作らない（＝サークルに密着）。 */
+.facility > .hot-spring-temperature {
+  position: absolute;
+  left: 63.3%;           /* ドーナツ拡大（padding 8%→4%）に合わせて右へ。隙間は従来どおり約16px */
+  right: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  margin: 0;
+}
+
+.thermometer__figure {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.thermometer__tube {
+  position: relative;
+  width: var(--th-tube-w);
+  height: var(--th-tube-h);
+  border: 4px solid var(--glass);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  background: #fff;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 2;
+}
+.thermometer__fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: clamp(0%, calc((var(--temp) - var(--min)) / (var(--max) - var(--min)) * 100%), 100%);
+  background: var(--liquid);
+  transition: height .5s ease, background-color .3s ease;
+  animation: thermo-rise 1.4s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes thermo-rise { from { height: 0 } }
+@media (prefers-reduced-motion: reduce) {
+  .thermometer__fill { animation: none }
+}
+.thermometer__bulb {
+  position: relative;
+  width: var(--th-bulb);
+  height: var(--th-bulb);
+  margin-top: -12px;
+  border: 4px solid var(--glass);
+  border-radius: 50%;
+  background: var(--liquid);
+  box-sizing: border-box;
+  z-index: 1;
+  transition: background-color .3s ease;
+}
+/* 管と球のつなぎ目（首）を液色で塗ってシームを消す */
+.thermometer__tube::after {
+  content: "";
+  position: absolute;
+  left: 50%; bottom: -4px;
+  transform: translateX(-50%);
+  width: 15px; height: 16px;
+  background: var(--liquid);
+  z-index: 3;
+}
+/* 目盛り */
+.thermometer__scale {
+  position: absolute;
+  top: 12px; bottom: 12px; right: 4px;
+  width: 11px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.thermometer__scale span {
+  display: block;
+  height: 3px;
+  width: 8px;
+  background: rgba(0,0,0,.18);
+  align-self: flex-end;
+  border-radius: 2px;
+}
+.thermometer__scale span:nth-child(odd) { width: 5px }
+
+/* 温度の数値 */
+.hot-spring-temperature__value {
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: var(--th-value);
+  font-weight: 700;
+  color: #333;
+  letter-spacing: -.03em;
+  line-height: 1;
+}
+.hot-spring-temperature__value small {
+  font-size: .62em;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+/* 休湯中のカードは湯温を出さない（サーバーが出力していても隠す） */
+.facility.closing .hot-spring-temperature { display: none }
+
+/* =========================================================
+   「入浴 :N」バッジ（kinosaki-congestion より移植）
+   Chart.js の凡例は canvas 内描画で装飾できないため、js/chart-badge.js が
+   凡例を止め、同内容のHTMLバッジを .chart に重ねる。サイネージ用に拡大。
+   ========================================================= */
+.chart { position: relative }          /* 既に relative だが明示（バッジの基準） */
+.chart-badge {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.8);
+  color: #fff;
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.chart-badge__swatch {
+  display: block;
+  width: 13px;
+  height: 13px;
+  border: 1px solid #fff;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   臨時休湯のお知らせ（kinosaki-congestion notice.css より移植）
+   マークアップは sotoyu.html 由来で既にある。城崎に合わせてカード下部へ。
+   .facility を flex/grid 化するとチャート生成後のリサイズでドーナツの
+   アニメが飛ぶため、カード下部への固定は「絶対配置」で行う（チャート不干渉）。
+   ========================================================= */
+.temporary-closure-notice {
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #d8402f;
+  color: #fff;
+  font-family: serif;        /* 上の open-info（明朝）に合わせる */
+  font-size: 17px;
+  font-weight: bold;
+  line-height: 1.5;
+  letter-spacing: .01em;
+  text-align: center;
+}
+/* 期間の直後で改行し、日付を大きく見せる（城崎と同じ） */
+.temporary-closure-notice__period {
+  display: block;
+  font-family: serif;        /* 日付行も明朝に統一（旧: Arial, "Helvetica Neue", sans-serif） */
+  font-size: 1.35em;
+  line-height: 1.35;
+  letter-spacing: .02em;
+}
+/* 城崎に合わせてカード下部へ固定（絶対配置） */
+.facility > .temporary-closure-notice {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 14px;
+}
+
+/* =========================================================
+   休湯カードの「お休み札＋開湯案内」（kinosaki style.css に合わせる）
+   yumepa既定は .closing-mark だけ絶対配置で open-info が浮くため、
+   城崎同様に .mark-info-wrap ごと中央に置き、札の下に open-info を出す。
+   下部の temporary-closure-notice と重ならない位置に調整。
+   ========================================================= */
+/* 休湯カードは flex カラム化して、札グループを施設名と notice の間で
+   自動的に上下中央へ。カードにチャートは無いのでアニメ問題は起きない。
+   （城崎 notice.css の margin:auto 中央寄せと同じ考え方） */
+.facility.closing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.facility.closing .mark-info-wrap {
+  /* お休みアイコンは「タイトル直下」に固定（開放カードのドーナツと同じ高さ帯）。
+     margin:auto で上下中央にすると、open-info/notice の有無でコンテンツ量が変わり
+     アイコン位置がバラつくため、上を固定・下は最小余白のみとする。 */
+  width: 90%;
+  margin: 4px auto 22px;   /* アイコン上端を開放カードのドーナツ上端に近づけ、タイトルとの空きを詰める */
+}
+/* 休湯カードの notice は flex で最下段へ固定（margin-top:auto で押し下げ）。
+   これでアイコンは上、notice は下端に分離。既定の絶対配置は解除。 */
+.facility.closing > .temporary-closure-notice {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 92%;
+  margin: auto auto 0;   /* top:auto=下端へ / 左右auto=中央 */
+}
+/* 既定の .closing-mark{position:absolute} を解除し wrap 内の通常フローへ */
+.facility.closing .closing-mark {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  display: block;
+}
+/* お休み札は城崎に合わせて小さめに（既定250px→大きすぎて notice と衝突） */
+.facility.closing .closing-mark img {
+  max-width: 180px;
+}
+.facility.closing .mark-info-wrap .open-info {
+  margin-top: 10px;
+  font-size: 1.5em;
+  font-weight: bold;
+  font-family: serif;
+  line-height: 1.4;
+}
+
+/* 温度目安の注記：城崎 .title .temp-note にスタイルを合わせる */
+.signage-temperature-note {
+  margin: 18px 0 12px;
+  text-align: center;
+  color: #d8402f;
+  font-family: sans-serif;
+  font-size: 1.2em;
+  font-weight: bold;
+  line-height: 1.6;
+  letter-spacing: .02em;
+}
+
+/* ％数字をドーナツ中心に合わせる。
+   元テーマは凡例ありレイアウトで top:55.5% にしていたが、chart-badge.js で
+   凡例を消したためドーナツが上に寄り 55.5% だと下すぎる。
+   実測で chartArea が canvas 全体＝ドーナツ中心は 50% のため 50% に補正。 */
+.chart .count { top: 50%; }
+
+/* ローマ字表記（Goshono-Yu 等）を下の施設名に合わせて明朝(serif)に。
+   字間は移植元の城崎 notice.css .facility-en と同じ .12em に揃える。 */
+.facility-en {
+  font-family: serif;
+  letter-spacing: .12em;
 }

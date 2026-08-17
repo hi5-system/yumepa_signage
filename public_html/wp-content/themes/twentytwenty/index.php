@@ -140,24 +140,44 @@ if($_GET['mode'] == 'slider'){
 	$con = file_get_contents("https://signage.kinosaki-onsen.net/external_data/sotoyu.html", "r");
 
 	$con = strstr($con, '<div id="content">');
-	$con = strstr($con, '<script>',true);
-	$con = str_replace('<div id="btn-go-old"><a href="/congestion_info/">< 旧来画面へ</a></div>', '', $con);
-	$con = str_replace('<div id="btn-go-back"><a href="/user/index/">ログイン画面へ ></a></div>', '', $con);
+	$con = strstr($con, '<script>', true);
+
+	// ゆめぱ側の更新日時を取得
+	$last_update = date('Y/m/d (D) H:i');
+	if (preg_match('/<span[^>]*id="last-update"[^>]*>(.*?)<\/span>/s', $con, $matches)) {
+		$last_update = trim(strip_tags($matches[1]));
+	}
+
+	// 施設一覧グリッドの開始位置を取得
+	$grid_start = false;
+	if (preg_match('/<div[^>]*class="[^"]*flex_box[^"]*"[^>]*>/i', $con, $matches, PREG_OFFSET_CAPTURE)) {
+		$grid_start = $matches[0][1];
+	}
+
+	if ($grid_start !== false) {
+		$facility_grid = substr($con, $grid_start);
+
+		// サイネージ用の見出しを生成
+		$signage_header = ''
+			.'<div class="title signage-congestion-title">'
+			.'<h1>外湯利用状況：Onsen Usage</h1>'
+			.'<span id="last-update">'.htmlspecialchars($last_update, ENT_QUOTES, 'UTF-8').'</span>'
+			.'</div>'
+			.'<div class="signage-temperature-note">表示している各湯の温度は目安です</div>';
+
+		$con = '<div id="content"><div id="content-inner">'
+			.$signage_header
+			.$facility_grid;
+	}
+
+	// 休湯・準備中画像のパスをサイネージテーマ側へ変更
 	$con = str_replace('src="/img/closing-mark.png"', 'src="'.get_template_directory_uri().'/img/closing-mark.png"', $con);
 	$con = str_replace('src="/img/closing2-mark.png"', 'src="'.get_template_directory_uri().'/img/closing2-mark.png"', $con);
 	$con = str_replace('src="/img/junbichu-mark.png"', 'src="'.get_template_directory_uri().'/img/junbichu-mark.png"', $con);
 
-	$con = str_replace('混雑状況', '外湯利用状況：Onsen Usage', $con);
-	$con = str_replace('月', '/', $con);
-	$con = str_replace('日', '', $con);
-	$con = str_replace('さとの湯', 'さとの湯:Satono-Yu', $con);
-	$con = str_replace('地蔵湯', '地蔵湯:Jizou-Yu', $con);
-	$con = str_replace('柳湯', '柳湯:Yanagi-Yu', $con);
-	$con = str_replace('一の湯', '一の湯:Ichino-Yu', $con);
-	$con = str_replace('御所の湯', '御所の湯:Goshono-Yu', $con);
-	$con = str_replace('まんだら湯', 'まんだら湯:Mandara-Yu', $con);
-	$con = str_replace('鴻の湯', '鴻の湯:Kouno-Yu', $con);
-	$con = str_replace('明', '明日', $con);
+	// 注意：
+	// 「月」「日」や施設名の一括置換は、臨時休湯の日付表記や
+	// ゆめぱ側で追加済みの英字施設名を壊すため行いません。
 	$interval = get_field('congestion','option') * 1000;
 	echo '<div id="img1" class="img bg-img" data-interval="'.$interval.'">'.$con.'</div>';
 
@@ -286,9 +306,12 @@ $('#Chartcount_<?=$facility[$i]?>_all').html('<em><?=$array[10]?></em><span clas
 	<title>外湯サイネージ(Sotoyu Signage)</title>
 	<meta charset="UTF-8">
 	<script src="https://code.jquery.com/jquery-2.2.4.min.js" ></script>
-	<script type="text/javascript" src="<?php echo get_template_directory_uri() ?>/js/main.js"></script>
+	<script type="text/javascript" src="<?php echo get_template_directory_uri() ?>/js/main.js?<?php echo date('YmdHi'); ?>"></script>
+	<script type="text/javascript" src="<?php echo get_template_directory_uri() ?>/js/thermometer.js?<?php echo date('YmdHi'); ?>"></script>
 	<link rel="stylesheet" href="<?php echo get_template_directory_uri() ?>/signage.css?<?php echo date('YmdHi'); ?>" />
 	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js"></script>
+	<?php // Chart.js の後に読み込む（window.Chart を包んで「入浴 :N」バッジを重ねるため） ?>
+	<script type="text/javascript" src="<?php echo get_template_directory_uri() ?>/js/chart-badge.js?<?php echo date('YmdHi'); ?>"></script>
 </head>
 <body>
 	<div id="content">
