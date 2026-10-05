@@ -7,6 +7,8 @@
 		disp_page = 0;
 
 		$('#slide').load('index.php?mode=slider&sotoyu_name='+sotoyu_name+'&facility_cd='+facility_cd,function(){
+			// スライド注入後に湯温の温度計を組み立てる（thermometer.js）
+			if (window.buildThermometers) { window.buildThermometers(document.getElementById('slide')); }
 			// $('#buffer').load('index.php?mode=news',function(){
 			// 	if($('#buffer').html()!=''){
 			// 		$('#slide').append($('#buffer').html());
